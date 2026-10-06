@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Список с состояниями</title>
+<style>body{font-family:system-ui;max-width:420px;margin:40px auto} button{margin:2px} .box{margin-top:16px;min-height:80px}
+.warn{background:#fff3cd;padding:6px;border-radius:4px}</style></head><body>
+<h1>Каталог</h1>
+<div id="filters"></div>
+<div class="box" id="view" aria-live="polite"></div>
+<script>
+function fakeApi(filter, signal) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => {
+      if (filter === 'broken') return reject(new Error('server'));
+      if (filter === 'empty') return resolve({items: [], failedSources: 0});
+      const items = [1, 2, 3].map(i => `${filter} #${i}`);
+      resolve(filter === 'partial' ? {items: items.slice(0, 2), failedSources: 1} : {items, failedSources: 0});
+    }, 300 + Math.random() * 1200);
+    signal.addEventListener('abort', () => { clearTimeout(t); reject(new DOMException('aborted', 'AbortError')); });
+  });
+}
+
+let state = {kind: 'loading', filter: 'books', items: [], failedSources: 0};
+let controller = null;
+let requestId = 0;
+
+async function load(filter) {
+  controller?.abort();
+  controller = new AbortController();
+  const myId = ++requestId;
+  state = {...state, kind: 'loading', filter};
+  render();
+  try {
+    const data = await fakeApi(filter, controller.signal);
+    if (myId !== requestId) return;
+    state = {...state, items: data.items, failedSources: data.failedSources,
+             kind: data.items.length === 0 ? 'empty' : data.failedSources ? 'partial' : 'success'};
+  } catch (e) {
+    if (e.name === 'AbortError' || myId !== requestId) return;
+    state = {...state, kind: 'error'};
+  }
+  render();
+}
+
+function render() {
+  const v = document.getElementById('view');
+  const list = state.items.map(i => `<li>${i}</li>`).join('');
+  v.innerHTML = {
+    loading: '<p>Загрузка…</p>',
+    empty:   '<p>Ничего не найдено. Измените фильтр.</p>',
+    error:   '<p>Не удалось загрузить данные.</p><button id="retry">Повторить</button>',
+    success: `<ul>${list}</ul>`,
+    partial: `<p class="warn">Показана только часть данных (${state.failedSources} источник недоступен).</p>
+              <ul>${list}</ul><button id="retry">Обновить</button>`,
+  }[state.kind];
+  document.getElementById('retry')?.addEventListener('click', () => load(state.filter));
+}
+
+const filters = document.getElementById('filters');
+['books', 'music', 'partial', 'empty', 'broken'].forEach(f => {
+  const b = document.createElement('button'); b.textContent = f;
+  b.onclick = () => load(f); filters.append(b);
+});
+load('books');
+</script></body></html>

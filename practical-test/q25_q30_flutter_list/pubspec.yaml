@@ -1,0 +1,11 @@
+name: items_list
+description: Вопросы 25 и 30 - экран списка на Flutter и его тесты.
+publish_to: none
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+dependencies:
+  flutter:
+    sdk: flutter
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

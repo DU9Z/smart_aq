@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><title>Профиль</title>
+<style>
+ body{font-family:system-ui;max-width:380px;margin:40px auto}
+ label{display:block;margin-top:14px} input{width:100%;padding:8px;box-sizing:border-box}
+ input[aria-invalid=true]{border:2px solid #c0392b} .err{color:#c0392b;font-size:14px;min-height:18px}
+ #ok{color:#1e8449}
+</style></head><body>
+<h1>Профиль</h1>
+<form id="f" novalidate>
+  <label for="email">Email</label>
+  <input id="email" name="email" type="email" autocomplete="email" aria-describedby="email-err">
+  <div id="email-err" class="err" role="alert"></div>
+  <label for="birth_date">Дата рождения</label>
+  <input id="birth_date" name="birth_date" type="date" aria-describedby="birth_date-err">
+  <div id="birth_date-err" class="err" role="alert"></div>
+  <button type="submit" style="margin-top:16px">Сохранить</button>
+  <p id="ok"></p>
+</form>
+<script>
+const rules = {
+  email: v => !v.trim() ? 'Укажите email'
+        : !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(v.trim()) ? 'Введите email в формате name@example.com' : '',
+  birth_date: v => !v ? 'Укажите дату рождения'
+        : v > new Date().toISOString().slice(0, 10) ? 'Дата рождения не может быть в будущем' : '',
+};
+const f = document.getElementById('f');
+
+function show(name, msg) {
+  const input = f.elements[name];
+  document.getElementById(name + '-err').textContent = msg || '';
+  input.setAttribute('aria-invalid', msg ? 'true' : 'false');
+}
+for (const name of Object.keys(rules)) {
+  f.elements[name].addEventListener('blur', e => show(name, rules[name](e.target.value)));
+}
+f.addEventListener('submit', async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(f));
+  const local = Object.fromEntries(Object.keys(rules).map(n => [n, rules[n](data[n])]));
+  Object.entries(local).forEach(([n, m]) => show(n, m));
+  const firstBad = Object.keys(local).find(n => local[n]);
+  if (firstBad) return f.elements[firstBad].focus();
+  const r = await fetch('/profile', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+  if (r.ok) { document.getElementById('ok').textContent = 'Сохранено'; return; }
+  const {errors} = await r.json();
+  Object.entries(errors).forEach(([n, m]) => show(n, m));
+  f.elements[Object.keys(errors)[0]].focus();
+});
+</script></body></html>
